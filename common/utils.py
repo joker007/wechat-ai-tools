@@ -2,6 +2,7 @@
 from urllib.parse import urlparse
 from common.singleton import singleton
 from common.log import logger
+from common.config import conf
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -12,36 +13,6 @@ from bs4 import BeautifulSoup
 import pytesseract
 from io import BytesIO
 from PIL import Image
-
-@singleton
-class WindClawler(object):
-    def __init__(self):
-        options = webdriver.ChromeOptions()
-        options.add_argument('--enable-logging')
-        options.add_argument('--v=1')
-        options.add_argument('--ignore-ssl-errors')
-        options.add_argument('--ignore-certificate-errors')
-
-        # service = webdriver.ChromeService()
-        # service.service_args
-        # service.log_output = "chromedriver.log" , service = service
-        self.driver = webdriver.Chrome(options = options)
-
-    def get_url_content_wind(self, url):
-        self.driver.get(url)
-        # 等待 JavaScript 执行完成
-        wait = WebDriverWait(self.driver, 10)
-        wait.until(EC.presence_of_element_located((By.ID, "news-detail")))
-        # 获取页面内容
-        page_source = self.driver.page_source
-        soup = BeautifulSoup(page_source, "html.parser")
-        content = soup.find('div', id='news-detail')
-        text = content.get_text()
-        # text = " ".join(text.split())
-        return text
-
-    def __del__(self):
-        self.driver.quit()
 
 def get_url_content_Wind(url, verbose = False):
     options = webdriver.ChromeOptions()
@@ -96,20 +67,25 @@ def get_url_content_wechat(url, verbose = False):
         content = soup.find('div', id='js_content')
         text = content.get_text(separator='\r\n', strip=True)
 
-        imgs_c = content.find_all('img')
-        imgs = [i['data-src'] for i in imgs_c]
+        config = conf()
 
-        pytesseract.pytesseract.tesseract_cmd = r'D:\Program Files\Tesseract-OCR\tesseract.exe'
+        ocrflag = config.get("ocr", False)
 
-        for img in imgs:
-            image_data = get_image_data(img)
-            # 打开图像
-            image = Image.open(image_data)
-            # 进行 OCR
-            t = pytesseract.image_to_string(image, lang='chi_sim')
-            text = text + t
-            logger.info("[OCR] url={}".format(img))
-            logger.info("[OCR] text={}".format(t))
+        if ocrflag:
+            imgs_c = content.find_all('img')
+            imgs = [i['data-src'] for i in imgs_c]
+
+            pytesseract.pytesseract.tesseract_cmd = config.get("ocr_tool_path", r'D:\Program Files\Tesseract-OCR\tesseract.exe')
+
+            for img in imgs:
+                image_data = get_image_data(img)
+                # 打开图像
+                image = Image.open(image_data)
+                # 进行 OCR
+                t = pytesseract.image_to_string(image, lang='chi_sim')
+                text = text + t
+                logger.debug("[OCR] url={}".format(img))
+                logger.debug("[OCR] text={}".format(t))
 
         if verbose:
             print(text)

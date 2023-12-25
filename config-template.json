@@ -7,6 +7,8 @@
   "summarize_user_prompt": "user_summarize_prompt",
   "channel_type": "wx",
   "proxy": "",
+  "ocr": false,
+  "ocr_tool_path": "",
   "hot_reload": false,
   "single_chat_prefix": [
     "bot",

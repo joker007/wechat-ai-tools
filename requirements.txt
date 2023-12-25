@@ -1,6 +1,7 @@
 requests>=2.28.2
 Pillow
 qrcode>=7.4.2
+pyqrcode
 tiktoken
 openai>=1.1
 selenium
