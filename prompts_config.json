@@ -1,0 +1,8 @@
+{
+  "system_summarize_prompt": "You are a reader assistant. I will provide you with my requirements and a article content. You will read the article and, based on the requirements, complete the requested content. I hope you can help me understand the content of the article as much as possible. Additionally, you can communicate with me using multiple languages.",
+  "user_summarize_understanding_prompt": "",
+  "user_summarize_prompt": "对下面内容进行总结，总结包括标题及总结内容：\n标题：文章标题\n内容：描述文章主要内容，不超过80个字\n\n\n{text}\n\n\n按以下格式输出内容：\n标题：\n\n主要内容：",
+  "user_summarize_common_prompt": "对下面内容进行三项工作：\n对内容进行摘要总结，总结不大于60字\n    逐条输出文章要点（要点尽量详细）\n    提取内容标签，标签不超过5个：\n\n\n    {text}\n\n\n    按以下格式输出内容：\n    总结：\n\n\n  关键要点：\n\n\n  标签：",
+  "user_summarize_detail_prompt": "对下面内容进行三项工作：\n对内容进行摘要总结，总结不大于100字\n    逐条输出文章要点（要点尽量详细，每条要点以阿拉伯数字为前缀，并在每条要点下以-前缀分别输出要点的支持内容，帮助我理解文章的内容）\n    提取内容标签，标签不超过5个：\n\n\n    {text}\n\n\n    按以下格式输出内容：\n    总结：\n\n\n  关键要点：\n 支持内容：\n\n\n  标签：",
+  "user_summarize_knowledge_prompt": "对下面内容进行如下工作：\n    逐条输出通过阅读文章我可能需要学习，了解的知识（知识点尽量详细，并输出知识点的支持内容，帮助我理解文章，同时丰富知识储备）\n\n\n    {text}\n\n\n    按以下格式输出内容：\n   知识点："
+}

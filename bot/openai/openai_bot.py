@@ -1,0 +1,358 @@
+# encoding:utf-8
+
+import time,os
+
+import openai
+import html
+import docx
+import fitz
+
+from bot.bot import Bot
+from bot.openai.openai_session import OpenAISession
+# from bot.openai.open_ai_image import OpenAIImage
+from bot.session_manager import SessionManager
+from bridge.context import ContextType
+from bridge.reply import Reply, ReplyType
+from common.log import logger
+from common.token_bucket import TokenBucket
+from common.config import conf, load_config
+from common.prompts import *
+from common.utils import *
+
+
+# import common.prompts
+# from common.config import conf, load_config
+
+
+# OpenAI对话模型API (可用)
+class OpenAIBot(Bot):
+    def __init__(self):
+        super().__init__()
+        # set the default api_key
+        openai.api_key = conf().get("api_key")
+        if conf().get("open_ai_api_base"):
+            openai.api_base = conf().get("open_ai_api_base")
+        proxy = conf().get("proxy")
+        if proxy:
+            openai.proxy = proxy
+        if conf().get("rate_limit_chatgpt"):
+            self.tb4chatgpt = TokenBucket(conf().get("rate_limit_chatgpt", 20))
+
+        self.sessions = SessionManager(OpenAISession, model=conf().get("model") or "gpt-3.5-turbo-1106")
+        self.args = {
+            "model": conf().get("model") or "gpt-3.5-turbo-1106",  # 对话模型的名称
+            "temperature": conf().get("temperature", 0),  # 值在[0,1]之间，越大表示回复越具有不确定性
+            # "max_tokens":4096,  # 回复最大的字符数
+            "top_p": conf().get("top_p", 1),
+            "frequency_penalty": conf().get("frequency_penalty", 0.0),  # [-2,2]之间，该值越大则更倾向于产生不同的内容
+            "presence_penalty": conf().get("presence_penalty", 0.0),  # [-2,2]之间，该值越大则更倾向于产生不同的内容
+            "timeout": conf().get("request_timeout", None),  # 重试超时时间，在这个时间内，将会自动重试
+        }
+
+    def manage(self, session_id, query, context=None):
+        # 管理功能
+        reply = None
+
+        clear_memory_commands = conf().get("clear_memory_commands", ["#清除记忆", "#reset"])
+        if query in clear_memory_commands:
+            self.sessions.clear_session(session_id)
+            reply = Reply(ReplyType.INFO, "记忆已清除")
+        elif query == "#清除所有":
+            self.sessions.clear_all_session()
+            reply = Reply(ReplyType.INFO, "所有人记忆已清除")
+        elif query in ["#更新配置", "#u"]:
+            load_config()
+            reply = Reply(ReplyType.INFO, "配置已更新")
+        elif query.startswith("#s"):
+            query = query.replace("#s", "", 1).strip()
+            conf().set("summarize_user_prompt",query)
+            reply = Reply(ReplyType.INFO, "摘要模式已切换")
+        elif query.startswith("#l"):
+            l = '''
+1.简洁模式，包含标题、总结（不超过80字），
+  命令：#s user_summarize_prompt
+2.通用模式，包含总结（不超过60字）、要点，标签，
+  命令：#s user_summarize_common_prompt
+3.详细模式，包含总结（不超过100字）、要点（支持内容），
+  标签，命令：#s user_summarize_detail_prompt
+4.阅读模式，包含知识点，标签，
+  命令：#s user_summarize_knowledge_prompt
+注：切换模式后，转发文章即可，每晚18：00到早10：00稳定运行
+            '''
+            reply = Reply(ReplyType.INFO, l)
+        # elif query.startswith("#l"):
+        #     conf().get(prompts)
+        #     reply = Reply(ReplyType.INFO, "常看当前所有模式:")
+        elif query.startswith("#"):
+            reply = Reply(ReplyType.INFO, "命令输入错误")
+        return reply
+
+    def get_url_content(self, query):
+        url = html.unescape(query)
+
+        if is_url_in_domains(url) == "mp.weixin.qq.com":
+            # print("wechat")
+            logger.info("[Wechat] url={}".format(url))
+            text = get_url_content_wechat(url)
+        elif is_url_in_domains(url) in ["t.wind.com.cn", "m.wind.com.cn"]:
+            logger.info("[Wind] url={}".format(url))
+            #crawler_instance = WindClawler()
+            #text = crawler_instance.get_url_content_wind(url)
+            text = get_url_content_Wind(url)
+        else:
+            logger.info("[Other] url={}".format(url))
+            text = get_url_content(url)
+
+        #token 检测
+
+        return text
+
+    def get_file_content(self, query):
+        file_path = os.path.join(os.getcwd(), query)
+        suffix = os.path.splitext(file_path)[-1]
+
+        if ".doc" in suffix:
+            doc = docx.Document(file_path)
+            fullText = []
+            for para in doc.paragraphs:
+                fullText.append(para.text)
+            text = '\n'.join(fullText)
+        elif suffix == ".txt":
+            with open(file_path, 'r', encoding='utf8') as f:
+                lines = f.readlines()
+            text = '\n'.join(lines)
+        elif suffix == ".pdf":
+            full_text = ""
+            num_pages = 0
+            with fitz.open(file_path) as doc:
+                for page in doc:
+                    num_pages += 1
+                    text = page.get_text()
+                    full_text += text + "\n"
+            text = f"This is a {num_pages}-page document.\n" + full_text
+
+        return text
+
+    def reply(self, query, context=None):
+        # acquire reply content
+        if context.type == ContextType.TEXT:
+            logger.info("[CHATGPT] query={}".format(query))
+
+            session_id = context["session_id"]
+            reply = self.manage(session_id, query, context)
+
+            if reply:
+                return reply
+
+            session = self.sessions.session_query(query, session_id)
+            logger.debug("[CHATGPT] session system prompt={}".format(session.system_prompt))
+            logger.debug("[CHATGPT] session query={}".format(query))
+            logger.debug("[CHATGPT] session prompt={}".format(session.messages))
+
+            api_key = context.get("openai_api_key")
+            model = context.get("gpt_model")
+            new_args = None
+            if model:
+                new_args = self.args.copy()
+                new_args["model"] = model
+            # if context.get('stream'):
+            #     # reply in stream
+            #     return self.reply_text_stream(query, new_query, session_id)
+
+            reply_content = self.reply_text(session, api_key, args=new_args)
+            logger.debug(
+                "[CHATGPT] new_query={}, session_id={}, reply_cont={}, completion_tokens={}".format(
+                    session.messages,
+                    session_id,
+                    reply_content["content"],
+                    reply_content["completion_tokens"],
+                )
+            )
+            if reply_content["completion_tokens"] == 0 and len(reply_content["content"]) > 0:
+                reply = Reply(ReplyType.ERROR, reply_content["content"])
+            elif reply_content["completion_tokens"] > 0:
+                self.sessions.session_reply(reply_content["content"], session_id, reply_content["total_tokens"])
+                reply = Reply(ReplyType.TEXT, reply_content["content"])
+            else:
+                reply = Reply(ReplyType.ERROR, reply_content["content"])
+                logger.debug("[CHATGPT] reply {} used 0 tokens.".format(reply_content))
+            return reply
+
+        elif context.type == ContextType.SHARING:
+            # print(query,context)
+            logger.info("[CHATGPT] query={}".format(query))
+
+            session_id = context["session_id"]
+            #reply = None
+
+            text = self.get_url_content(query)
+
+            logger.debug("[CHATGPT] article text length={}, text={}".format(len(text), text))
+
+            if len(text) < 50 :
+                logger.debug("[CHATGPT] article text length={}, text={}".format(len(text),text))
+                reply = Reply(ReplyType.INFO, "提取文章内容失败！")
+                return reply
+
+            system_prompt = conf().get("prompts")[conf().get("summarize_system_prompt")]
+            prompt = conf().get("prompts")[conf().get("summarize_user_prompt")].format(text=text)
+
+            self.sessions.clear_session(session_id)
+            session = self.sessions.session_query(prompt, session_id, system_prompt)
+            logger.debug("[CHATGPT] session query={}".format(session.messages))
+
+            api_key = context.get("openai_api_key")
+            model = context.get("gpt_model")
+            new_args = None
+            if model:
+                new_args = self.args.copy()
+                new_args["model"] = model
+
+            reply_content = self.reply_text(session, api_key, args=new_args)
+            logger.debug(
+                "[CHATGPT] new_query={}, session_id={}, reply_cont={}, completion_tokens={}".format(
+                    session.messages,
+                    session_id,
+                    reply_content["content"],
+                    reply_content["completion_tokens"],
+                )
+            )
+            self.sessions.clear_session(session_id)
+
+            if reply_content["completion_tokens"] == 0 and len(reply_content["content"]) > 0:
+                reply = Reply(ReplyType.ERROR, reply_content["content"])
+            elif reply_content["completion_tokens"] > 0:
+                self.sessions.session_reply(reply_content["content"], session_id, reply_content["total_tokens"])
+                reply = Reply(ReplyType.TEXT, reply_content["content"])
+            else:
+                reply = Reply(ReplyType.ERROR, reply_content["content"])
+                logger.debug("[CHATGPT] reply {} used 0 tokens.".format(reply_content))
+            return reply
+        elif context.type == ContextType.FILE:
+            logger.info("[CHATGPT] query={}".format(query))
+
+            session_id = context["session_id"]
+            #reply = None
+
+            context.kwargs['msg']._prepare_fn()
+            text = self.get_file_content(query)
+
+            logger.debug("[CHATGPT] article text length={}, text={}".format(len(text), text))
+
+            if len(text) < 50 :
+                logger.debug("[CHATGPT] article text length={}, text={}".format(len(text),text))
+                reply = Reply(ReplyType.INFO, "提取文章内容失败！")
+                return reply
+
+            system_prompt = conf().get("prompts")[conf().get("summarize_system_prompt")]
+            prompt = conf().get("prompts")[conf().get("summarize_user_prompt")].format(text=text)
+
+            self.sessions.clear_session(session_id)
+            session = self.sessions.session_query(prompt, session_id, system_prompt)
+            logger.debug("[CHATGPT] session query={}".format(session.messages))
+
+            api_key = context.get("openai_api_key")
+            model = context.get("gpt_model")
+            new_args = None
+            if model:
+                new_args = self.args.copy()
+                new_args["model"] = model
+
+            reply_content = self.reply_text(session, api_key, args=new_args)
+            logger.debug(
+                "[CHATGPT] new_query={}, session_id={}, reply_cont={}, completion_tokens={}".format(
+                    session.messages,
+                    session_id,
+                    reply_content["content"],
+                    reply_content["completion_tokens"],
+                )
+            )
+            self.sessions.clear_session(session_id)
+
+            if reply_content["completion_tokens"] == 0 and len(reply_content["content"]) > 0:
+                reply = Reply(ReplyType.ERROR, reply_content["content"])
+            elif reply_content["completion_tokens"] > 0:
+                self.sessions.session_reply(reply_content["content"], session_id, reply_content["total_tokens"])
+                reply = Reply(ReplyType.TEXT, reply_content["content"])
+            else:
+                reply = Reply(ReplyType.ERROR, reply_content["content"])
+                logger.debug("[CHATGPT] reply {} used 0 tokens.".format(reply_content))
+            return reply
+
+        elif context.type == ContextType.IMAGE_CREATE:
+            ok, retstring = self.create_img(query, 0)
+            reply = None
+            if ok:
+                reply = Reply(ReplyType.IMAGE_URL, retstring)
+            else:
+                reply = Reply(ReplyType.ERROR, retstring)
+            return reply
+        else:
+            reply = Reply(ReplyType.ERROR, "Bot不支持处理{}类型的消息".format(context.type))
+            return reply
+
+    def reply_text(self, session: OpenAISession, api_key=None, args=None, retry_count=0) -> dict:
+        """
+        call openai's ChatCompletion to get the answer
+        :param session: a conversation session
+        :param session_id: session id
+        :param retry_count: retry count
+        :return: {}
+        """
+        try:
+            # if conf().get("rate_limit_chatgpt") and not self.tb4chatgpt.get_token():
+            #    raise openai.error.RateLimitError("RateLimitError: rate limit exceeded")
+            # if api_key == None, the default openai.api_key will be used
+            if args is None:
+                args = self.args
+            response = openai.chat.completions.create(messages=session.messages, **args)
+            # logger.debug("[CHATGPT] response={}".format(response))
+            logger.info("[ChatGPT] reply={}, total_tokens={}".format(response.choices[0].message.content, response.usage.total_tokens))
+            return {
+                "total_tokens": response.usage.total_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "content": response.choices[0].message.content,
+            }
+        except Exception as e:
+            need_retry = retry_count < 2
+            result = {"completion_tokens": 0, "content": "我现在有点累了，等会再来吧"}
+            logger.exception("[CHATGPT] Exception: {}".format(e))
+            need_retry = False
+            self.sessions.clear_session(session.session_id)
+
+            if need_retry:
+                logger.warn("[CHATGPT] 第{}次重试".format(retry_count + 1))
+                return self.reply_text(session, api_key, args, retry_count + 1)
+            else:
+                return result
+
+
+class AzureChatGPTBot(OpenAIBot):
+    def __init__(self):
+        super().__init__()
+        openai.api_type = "azure"
+        openai.api_version = conf().get("azure_api_version", "2023-06-01-preview")
+        self.args["deployment_id"] = conf().get("azure_deployment_id")
+
+    def create_img(self, query, retry_count=0, api_key=None):
+        api_version = "2022-08-03-preview"
+        url = "{}dalle/text-to-image?api-version={}".format(openai.api_base, api_version)
+        api_key = api_key or openai.api_key
+        headers = {"api-key": api_key, "Content-Type": "application/json"}
+        try:
+            body = {"caption": query, "resolution": conf().get("image_create_size", "256x256")}
+            submission = requests.post(url, headers=headers, json=body)
+            operation_location = submission.headers["Operation-Location"]
+            retry_after = submission.headers["Retry-after"]
+            status = ""
+            image_url = ""
+            while status != "Succeeded":
+                logger.info("waiting for image create..., " + status + ",retry after " + retry_after + " seconds")
+                time.sleep(int(retry_after))
+                response = requests.get(operation_location, headers=headers)
+                status = response.json()["status"]
+            image_url = response.json()["result"]["contentUrl"]
+            return True, image_url
+        except Exception as e:
+            logger.error("create image error: {}".format(e))
+            return False, "图片生成失败"
