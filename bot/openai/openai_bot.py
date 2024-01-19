@@ -1,6 +1,6 @@
 # encoding:utf-8
 
-import time,os
+import time, os
 
 import openai
 import html
@@ -36,9 +36,10 @@ class OpenAIBot(Bot):
         if proxy:
             openai.proxy = proxy
         if conf().get("rate_limit_chatgpt"):
-            self.tb4chatgpt = TokenBucket(conf().get("rate_limit_chatgpt", 20))
+            self.tb4chatgpt = TokenBucket(conf().get("rate_limit_chatgpt", 20000))
 
         self.sessions = SessionManager(OpenAISession, model=conf().get("model") or "gpt-3.5-turbo-1106")
+
         self.args = {
             "model": conf().get("model") or "gpt-3.5-turbo-1106",  # 对话模型的名称
             "temperature": conf().get("temperature", 0),  # 值在[0,1]之间，越大表示回复越具有不确定性
@@ -65,7 +66,7 @@ class OpenAIBot(Bot):
             reply = Reply(ReplyType.INFO, "配置已更新")
         elif query.startswith("#s"):
             query = query.replace("#s", "", 1).strip()
-            conf().set("summarize_user_prompt",query)
+            conf().set("summarize_user_prompt", query)
             reply = Reply(ReplyType.INFO, "摘要模式已切换")
         elif query.startswith("#l"):
             l = '''
@@ -94,16 +95,17 @@ class OpenAIBot(Bot):
             # print("wechat")
             logger.info("[Wechat] url={}".format(url))
             text = get_url_content_wechat(url)
-        elif is_url_in_domains(url) in ["t.wind.com.cn", "m.wind.com.cn"]:
+        elif is_url_in_domains(url) in ["t.wind.com.cn", "m.wind.com.cn", "m.toutiao.com"]:
             logger.info("[Wind] url={}".format(url))
-            #crawler_instance = WindClawler()
-            #text = crawler_instance.get_url_content_wind(url)
+            # crawler_instance = WindClawler()
+            # text = crawler_instance.get_url_content_wind(url)
             text = get_url_content_Wind(url)
+            print(text)
         else:
             logger.info("[Other] url={}".format(url))
             text = get_url_content(url)
 
-        #token 检测
+        # token 检测
 
         return text
 
@@ -183,14 +185,14 @@ class OpenAIBot(Bot):
             logger.info("[CHATGPT] query={}".format(query))
 
             session_id = context["session_id"]
-            #reply = None
+            # reply = None
 
             text = self.get_url_content(query)
 
             logger.debug("[CHATGPT] article text length={}, text={}".format(len(text), text))
 
-            if len(text) < 50 :
-                logger.debug("[CHATGPT] article text length={}, text={}".format(len(text),text))
+            if len(text) < 50:
+                logger.debug("[CHATGPT] article text length={}, text={}".format(len(text), text))
                 reply = Reply(ReplyType.INFO, "提取文章内容失败！")
                 return reply
 
@@ -232,15 +234,15 @@ class OpenAIBot(Bot):
             logger.info("[CHATGPT] query={}".format(query))
 
             session_id = context["session_id"]
-            #reply = None
+            # reply = None
 
             context.kwargs['msg']._prepare_fn()
             text = self.get_file_content(query)
 
             logger.debug("[CHATGPT] article text length={}, text={}".format(len(text), text))
 
-            if len(text) < 50 :
-                logger.debug("[CHATGPT] article text length={}, text={}".format(len(text),text))
+            if len(text) < 50:
+                logger.debug("[CHATGPT] article text length={}, text={}".format(len(text), text))
                 reply = Reply(ReplyType.INFO, "提取文章内容失败！")
                 return reply
 
@@ -307,7 +309,8 @@ class OpenAIBot(Bot):
                 args = self.args
             response = openai.chat.completions.create(messages=session.messages, **args)
             # logger.debug("[CHATGPT] response={}".format(response))
-            logger.info("[ChatGPT] reply={}, total_tokens={}".format(response.choices[0].message.content, response.usage.total_tokens))
+            logger.info("[ChatGPT] reply={}, total_tokens={}".format(response.choices[0].message.content,
+                                                                     response.usage.total_tokens))
             return {
                 "total_tokens": response.usage.total_tokens,
                 "completion_tokens": response.usage.completion_tokens,

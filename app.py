@@ -1,9 +1,7 @@
 # encoding:utf-8
 
-import os
 import signal
 import sys
-import logging
 
 from common.log import logger
 from common.config import conf, load_config

@@ -4,55 +4,45 @@ from bridge.reply import Reply
 from common.log import logger
 from common.singleton import singleton
 from common.config import conf
-#from translate.factory import create_translator
-#from voice.factory import create_voice
+
+
+# from translate.factory import create_translator
+# from voice.factory import create_voice
 
 
 @singleton
 class Bridge(object):
     def __init__(self):
-        # self.btype = {
-        #     "chat": const.CHATGPTNEW,
-        #     "url_to_content": const.CHATGPTNEW,
-        #     "voice_to_text": conf().get("voice_to_text", "openai"),
-        #     "text_to_voice": conf().get("text_to_voice", "google"),
-        #     "translate": conf().get("translate", "baidu"),
-        # }
+        # 读取各平台场景模型
+        self.platforms = conf().get("platforms")
+        # 获取当前配置平台bot
         self.bot_type = conf().get("bot")
-        #model_type = conf().get("model")
-        # if model_type in ["text-davinci-003"]:
-        #     self.btype["chat"] = const.OPEN_AI
-        # if conf().get("use_azure_chatgpt", False):
-        #     self.btype["chat"] = const.CHATGPTONAZURE
-        # if model_type in ["wenxin"]:
-        #     self.btype["chat"] = const.BAIDU
-        # if model_type in ["xunfei"]:
-        #     self.btype["chat"] = const.XUNFEI
-        # if conf().get("use_linkai") and conf().get("linkai_api_key"):
-        #     self.btype["chat"] = const.LINKAI
-        # if model_type in ["claude"]:
-        #     self.btype["chat"] = const.CLAUDEAI
+        # 保存实例化bot对象
         self.bots = {}
+        #
         self.chat_bots = {}
 
     def get_bot(self, typename):
         if self.bots.get(typename) is None:
             logger.info("create bot {} for {}".format(self.bot_type, typename))
-            if typename == "openai":
-                self.bots[typename] = create_bot(self.bot_type)
+            if typename in ["openai", "gemini"]:
+                self.bots[typename] = create_bot(typename)
         return self.bots[typename]
 
-    def get_bot_type(self, typename):
-        return self.btype[typename]
+    def get_bot_type(self):
+        return self.bot_type
 
+    # TEXT回复
     def fetch_reply_content(self, query, context: Context) -> Reply:
-        return self.get_bot("openai").reply(query, context)
+        return self.get_bot(self.bot_type).reply(query, context)
 
+    # SHARING回复
     def fetch_url_to_content(self, query, context: Context) -> Reply:
-        return self.get_bot("openai").reply(query, context)
+        return self.get_bot(self.bot_type).reply(query, context)
 
+    # FILE回复
     def fetch_file_to_content(self, query, context: Context) -> Reply:
-        return self.get_bot("openai").reply(query, context)
+        return self.get_bot(self.bot_type).reply(query, context)
 
     def fetch_voice_to_text(self, voiceFile) -> Reply:
         return self.get_bot("voice_to_text").voiceToText(voiceFile)

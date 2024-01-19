@@ -104,7 +104,7 @@ def qrCallback(uuid, status, qrcode):
 
 @singleton
 class WechatChannel(ChatChannel):
-    NOT_SUPPORT_REPLYTYPE = []
+    #NOT_SUPPORT_REPLYTYPE = []
 
     def __init__(self):
         super().__init__()
@@ -159,8 +159,11 @@ class WechatChannel(ChatChannel):
             logger.debug("[WX]receive text msg: {}, cmsg={}".format(json.dumps(cmsg._rawmsg, ensure_ascii=False), cmsg))
         else:
             logger.debug("[WX]receive msg: {}, cmsg={}".format(cmsg.content, cmsg))
+
+        # 构造context对象
         context = self._compose_context(cmsg.ctype, cmsg.content, isgroup=False, msg=cmsg)
         if context:
+            # 处理context对象
             self.produce(context)
 
     @time_checker
@@ -181,8 +184,10 @@ class WechatChannel(ChatChannel):
             logger.debug(f"[WX]receive attachment msg, file_name={cmsg.content}")
         else:
             logger.debug("[WX]receive group msg: {}".format(cmsg.content))
+        # 构造context对象
         context = self._compose_context(cmsg.ctype, cmsg.content, isgroup=True, msg=cmsg)
         if context:
+            # 处理context对象
             self.produce(context)
 
     # 统一的发送函数，每个Channel自行实现，根据reply的type字段发送不同类型的消息
