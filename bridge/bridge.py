@@ -14,9 +14,9 @@ from common.config import conf
 class Bridge(object):
     def __init__(self):
         # 读取各平台场景模型
-        self.platforms = conf().get("platforms")
+        #self.platforms = conf().get("platforms")
         # 获取当前配置平台bot
-        self.bot_type = conf().get("bot")
+        #self.bot_type = conf().get("bot")
         # 保存实例化bot对象
         self.bots = {}
         #
@@ -24,7 +24,7 @@ class Bridge(object):
 
     def get_bot(self, typename):
         if self.bots.get(typename) is None:
-            logger.info("create bot {} for {}".format(self.bot_type, typename))
+            logger.info("create bot {} for {}".format(typename, typename))
             if typename in ["openai", "gemini"]:
                 self.bots[typename] = create_bot(typename)
         return self.bots[typename]
@@ -33,16 +33,16 @@ class Bridge(object):
         return self.bot_type
 
     # TEXT回复
-    def fetch_reply_content(self, query, context: Context) -> Reply:
-        return self.get_bot(self.bot_type).reply(query, context)
+    def fetch_reply_content(self, bot_type, query, context: Context) -> Reply:
+        return self.get_bot(bot_type).reply(query, context)
 
     # SHARING回复
-    def fetch_url_to_content(self, query, context: Context) -> Reply:
-        return self.get_bot(self.bot_type).reply(query, context)
+    def fetch_url_to_content(self, bot_type, query, context: Context) -> Reply:
+        return self.get_bot(bot_type).reply(query, context)
 
     # FILE回复
-    def fetch_file_to_content(self, query, context: Context) -> Reply:
-        return self.get_bot(self.bot_type).reply(query, context)
+    def fetch_file_to_content(self, bot_type, query, context: Context) -> Reply:
+        return self.get_bot(bot_type).reply(query, context)
 
     def fetch_voice_to_text(self, voiceFile) -> Reply:
         return self.get_bot("voice_to_text").voiceToText(voiceFile)

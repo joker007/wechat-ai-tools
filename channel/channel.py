@@ -33,14 +33,14 @@ class Channel(object):
         """
         raise NotImplementedError
 
-    def build_reply_content(self, query, context: Context = None) -> Reply:
-        return Bridge().fetch_reply_content(query, context)
+    def build_reply_content(self, bot_type, query, context: Context = None) -> Reply:
+        return Bridge().fetch_reply_content(bot_type, query, context)
 
-    def build_url_to_text(self, query, context: Context = None) -> Reply:
-        return Bridge().fetch_url_to_content(query, context)
+    def build_url_to_text(self, bot_type, query, context: Context = None) -> Reply:
+        return Bridge().fetch_url_to_content(bot_type, query, context)
 
-    def build_file_to_text(self,query, context: Context = None) -> Reply:
-        return Bridge().fetch_file_to_content(query, context)
+    def build_file_to_text(self,bot_type, query, context: Context = None) -> Reply:
+        return Bridge().fetch_file_to_content(bot_type, query, context)
 
     # def build_voice_to_text(self, voice_file) -> Reply:
     #     return Bridge().fetch_voice_to_text(voice_file)

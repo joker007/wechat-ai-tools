@@ -61,31 +61,7 @@ class OpenAIBot(Bot):
         elif query == "#清除所有":
             self.sessions.clear_all_session()
             reply = Reply(ReplyType.INFO, "所有人记忆已清除")
-        elif query in ["#更新配置", "#u"]:
-            load_config()
-            reply = Reply(ReplyType.INFO, "配置已更新")
-        elif query.startswith("#s"):
-            query = query.replace("#s", "", 1).strip()
-            conf().set("summarize_user_prompt", query)
-            reply = Reply(ReplyType.INFO, "摘要模式已切换")
-        elif query.startswith("#l"):
-            l = '''
-1.简洁模式，包含标题、总结（不超过80字），
-  命令：#s user_summarize_prompt
-2.通用模式，包含总结（不超过60字）、要点，标签，
-  命令：#s user_summarize_common_prompt
-3.详细模式，包含总结（不超过100字）、要点（支持内容），
-  标签，命令：#s user_summarize_detail_prompt
-4.阅读模式，包含知识点，标签，
-  命令：#s user_summarize_knowledge_prompt
-注：切换模式后，转发文章即可，每晚18：00到早10：00稳定运行
-            '''
-            reply = Reply(ReplyType.INFO, l)
-        # elif query.startswith("#l"):
-        #     conf().get(prompts)
-        #     reply = Reply(ReplyType.INFO, "常看当前所有模式:")
-        elif query.startswith("#"):
-            reply = Reply(ReplyType.INFO, "命令输入错误")
+
         return reply
 
     def get_url_content(self, query):

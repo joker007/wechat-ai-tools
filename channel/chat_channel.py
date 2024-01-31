@@ -10,7 +10,7 @@ from bridge.reply import *
 from channel.channel import Channel
 from common.dequeue import Dequeue
 from common.log import logger
-from common.config import conf
+from common.config import conf, load_config
 
 # try:
 #     from voice.audio_convert import any_to_wav
@@ -161,9 +161,69 @@ class ChatChannel(Channel):
         # reply的发送步骤
         self._send_reply(context, reply)
 
+    def _manage(self, content):
+        # 管理功能
+        reply = None
+        query = content.content
+
+        if query in ["#更新配置", "#u"]:
+            load_config()
+            reply = Reply(ReplyType.INFO, "配置已更新")
+        elif query.startswith("#showb"):
+            reply = Reply(ReplyType.INFO,
+                          "当前机器人模式为：" + conf().get("bot") + ",模型为：" + conf().get("model"))
+        elif query.startswith("#s"):
+            query = query.replace("#s", "", 1).strip()
+            prompts = conf().get("prompts")
+            if check_contain(query, list(prompts.keys())):
+                conf().set("summarize_user_prompt", query)
+                reply = Reply(ReplyType.INFO, "摘要模式已切换")
+            else:
+                reply = Reply(ReplyType.INFO, "命令输入错误")
+        elif query.startswith("#b"):
+            query = query.replace("#b", "", 1).strip()
+            platforms = conf().get("platforms")
+            if check_contain(query, list(platforms.keys())):
+                conf().set("bot", query)
+                conf().set("model", platforms[query]["chat"])
+                reply = Reply(ReplyType.INFO,
+                              "机器人模式已切换为：" + conf().get("bot") + ",模型切换为：" + conf().get("model"))
+            else:
+                reply = Reply(ReplyType.INFO, "命令输入错误")
+        elif query.startswith("#l"):
+            l = '''
+1.简洁模式，包含标题、总结（不超过80字），
+  命令：#s user_summarize_prompt
+2.通用模式，包含总结（不超过60字）、要点，标签，
+  命令：#s user_summarize_common_prompt
+3.详细模式，包含总结（不超过100字）、要点（支持内容），
+  标签，命令：#s user_summarize_detail_prompt
+4.阅读模式，包含知识点，标签，
+  命令：#s user_summarize_knowledge_prompt
+注：切换模式后，转发文章即可，每晚18：00到早10：00稳定运行
+               '''
+            reply = Reply(ReplyType.INFO, l)
+        # elif query.startswith("#l"):
+        #     conf().get(prompts)
+        #     reply = Reply(ReplyType.INFO, "常看当前所有模式:")
+        elif query.startswith("#"):
+            reply = Reply(ReplyType.INFO, "命令输入错误")
+        return reply
+
     def _generate_reply(self, context: Context, reply: Reply = Reply()) -> Reply:
-        if context.type == ContextType.TEXT or context.type == ContextType.IMAGE_CREATE:  # 文字和图片消息
-            reply = super().build_reply_content(context.content, context)
+        if context.type == ContextType.TEXT:  # 文字
+            #管理命令处理
+            reply = self._manage(context)
+            if reply:
+                return reply
+
+            #文本内容处理
+            bot_type = conf().get("bot")
+            reply = super().build_reply_content(bot_type, context.content, context)
+
+        elif context.type == ContextType.IMAGE_CREATE: #和图片消息
+            bot_type = conf().get("bot")
+            reply = super().build_reply_content(bot_type, context.content, context)
         elif context.type == ContextType.VOICE:  # 语音消息
             cmsg = context["msg"]
             cmsg.prepare()
@@ -195,7 +255,8 @@ class ChatChannel(Channel):
             cmsg = context["msg"]
             cmsg.prepare()
         elif context.type == ContextType.SHARING:  # 分享信息，当前无默认逻辑
-            reply = super().build_url_to_text(context.content, context)
+            bot_type = conf().get("bot")
+            reply = super().build_url_to_text(bot_type, context.content, context)
         elif context.type == ContextType.FUNCTION or context.type == ContextType.FILE:  # 文件消息及函数调用等，当前无默认逻辑
             reply = super().build_file_to_text(context.content, context)
         else:
