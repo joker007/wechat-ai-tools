@@ -22,6 +22,7 @@ class GoogleGeminiBot(Bot):
     def __init__(self):
         super().__init__()
         self.api_key = conf().get("gemini_api_key")
+        genai.configure(api_key=self.api_key)
         self.model = genai.GenerativeModel(conf().get("model") or "gemini-pro")
         # 复用文心的token计算方式
         self.sessions = SessionManager(BaiduWenxinSession, model=conf().get("model") or "gemini-pro")
@@ -91,24 +92,14 @@ class GoogleGeminiBot(Bot):
                     'HATE_SPEECH': 'block_none',
                     'DANGEROUS': 'block_none'
                 }
-                try:
-                    response = model.generate_content(contents=[
-                        'Please describe this image in Chinese as detailed and accurately as possible, without adding any information that is not present in the image,then make  inferences based on that.',
-                        cookie_picture], safety_settings=safety_setting)
-                    reply = Reply(ReplyType.TEXT, response.text)
-                except Exception as e:
-                    logger.debug(
-                        "[Gemini] new_query={},  reply_cont={}, prompt_feedback={}".format(
-                            '',
-                            len(response.text),
-                            response.prompt_feedback,
-                        )
-                    )
-                    reply = Reply(ReplyType.TEXT, '服务器出错啦')
+                response = model.generate_content(contents=[
+                    'Please describe this image in Chinese as detailed and accurately as possible, without adding any information that is not present in the image,then make  inferences based on that.',
+                    cookie_picture], safety_settings=safety_setting)
+                reply = Reply(ReplyType.TEXT, response.text)
                 return reply
             else:
                 logger.warn(f"[Gemini] Unsupported message type, type={context.type}")
-                return Reply(ReplyType.TEXT, None)
+                return Reply(ReplyType.TEXT, '服务器出错啦')
         except Exception as e:
             logger.error("[Gemini] fetch reply error, may contain unsafe content")
             logger.error(e)
