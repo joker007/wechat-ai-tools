@@ -20,7 +20,7 @@ class GoogleGeminiBot(Bot):
     def __init__(self):
         super().__init__()
         self.api_key = conf().get("gemini_api_key")
-        self.model = conf().get("model") or "gemini-pro"
+        self.model = genai.GenerativeModel(conf().get("model") or "gemini-pro")
         # 复用文心的token计算方式
         self.sessions = SessionManager(BaiduWenxinSession, model=conf().get("model") or "gemini-pro")
 
@@ -61,9 +61,9 @@ class GoogleGeminiBot(Bot):
                 logger.debug("[Gemini] session query={}".format(gemini_messages))
 
                 genai.configure(api_key=self.api_key)
-                model = genai.GenerativeModel('gemini-pro')
+                #model = genai.GenerativeModel('gemini-pro')
 
-                response = model.generate_content(gemini_messages)
+                response = self.model.generate_content(gemini_messages)
                 logger.debug("[Gemini] session query={}".format(self.model))
                 logger.debug(
                     "[Gemini] new_query={}, session_id={}, reply_cont={}, prompt_feedback={}".format(
