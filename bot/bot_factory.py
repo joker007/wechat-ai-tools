@@ -15,4 +15,7 @@ def create_bot(bot_type):
     elif bot_type == "gemini":
         from bot.google.google_gemini_bot import GoogleGeminiBot
         return GoogleGeminiBot()
+    elif bot_type == "claude":
+        from bot.claude.claude_ai_bot import ClaudeAIBot
+        return ClaudeAIBot()
     raise RuntimeError
