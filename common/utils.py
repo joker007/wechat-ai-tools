@@ -1,3 +1,12 @@
+import time, os
+import requests
+from bs4 import BeautifulSoup
+import pytesseract
+from io import BytesIO
+from PIL import Image
+import html
+import docx
+import fitz
 
 from urllib.parse import urlparse
 from common.singleton import singleton
@@ -8,11 +17,53 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-import requests
-from bs4 import BeautifulSoup
-import pytesseract
-from io import BytesIO
-from PIL import Image
+def get_url_content(query):
+    url = html.unescape(query)
+
+    if is_url_in_domains(url) == "mp.weixin.qq.com":
+        # print("wechat")
+        logger.info("[Wechat] url={}".format(url))
+        text = get_url_content_wechat(url)
+    elif is_url_in_domains(url) in ["t.wind.com.cn", "m.wind.com.cn", "m.toutiao.com"]:
+        logger.info("[Wind] url={}".format(url))
+        # crawler_instance = WindClawler()
+        # text = crawler_instance.get_url_content_wind(url)
+        text = get_url_content_Wind(url)
+        #print(text)
+    elif is_url_in_domains(url) in ["m.toutiao.com"]:
+        logger.info("[TouTiao] url={}".format(url))
+    else:
+        logger.info("[Other] url={}".format(url))
+        text = get_url_content_common(url)
+    # token 检测
+    return text
+
+
+def get_file_content(query):
+    file_path = os.path.join(os.getcwd(), query)
+    suffix = os.path.splitext(file_path)[-1]
+
+    if ".doc" in suffix:
+        doc = docx.Document(file_path)
+        fullText = []
+        for para in doc.paragraphs:
+            fullText.append(para.text)
+        text = '\n'.join(fullText)
+    elif suffix == ".txt":
+        with open(file_path, 'r', encoding='utf8') as f:
+            lines = f.readlines()
+        text = '\n'.join(lines)
+    elif suffix == ".pdf":
+        full_text = ""
+        num_pages = 0
+        with fitz.open(file_path) as doc:
+            for page in doc:
+                num_pages += 1
+                text = page.get_text()
+                full_text += text + "\n"
+        text = f"This is a {num_pages}-page document.\n" + full_text
+
+    return text
 
 def get_url_content_Wind(url, verbose = False):
     options = webdriver.ChromeOptions()
@@ -36,7 +87,7 @@ def get_url_content_Wind(url, verbose = False):
         print(text)
     return text
 
-def get_url_content(url, verbose = False):
+def get_url_content_common(url, verbose = False):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     }

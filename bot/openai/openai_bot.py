@@ -3,9 +3,6 @@
 import time, os
 
 import openai
-import html
-import docx
-import fitz
 
 from bot.bot import Bot
 from bot.openai.openai_session import OpenAISession
@@ -64,53 +61,6 @@ class OpenAIBot(Bot):
 
         return reply
 
-    def get_url_content(self, query):
-        url = html.unescape(query)
-
-        if is_url_in_domains(url) == "mp.weixin.qq.com":
-            # print("wechat")
-            logger.info("[Wechat] url={}".format(url))
-            text = get_url_content_wechat(url)
-        elif is_url_in_domains(url) in ["t.wind.com.cn", "m.wind.com.cn", "m.toutiao.com"]:
-            logger.info("[Wind] url={}".format(url))
-            # crawler_instance = WindClawler()
-            # text = crawler_instance.get_url_content_wind(url)
-            text = get_url_content_Wind(url)
-            print(text)
-        else:
-            logger.info("[Other] url={}".format(url))
-            text = get_url_content(url)
-
-        # token 检测
-
-        return text
-
-    def get_file_content(self, query):
-        file_path = os.path.join(os.getcwd(), query)
-        suffix = os.path.splitext(file_path)[-1]
-
-        if ".doc" in suffix:
-            doc = docx.Document(file_path)
-            fullText = []
-            for para in doc.paragraphs:
-                fullText.append(para.text)
-            text = '\n'.join(fullText)
-        elif suffix == ".txt":
-            with open(file_path, 'r', encoding='utf8') as f:
-                lines = f.readlines()
-            text = '\n'.join(lines)
-        elif suffix == ".pdf":
-            full_text = ""
-            num_pages = 0
-            with fitz.open(file_path) as doc:
-                for page in doc:
-                    num_pages += 1
-                    text = page.get_text()
-                    full_text += text + "\n"
-            text = f"This is a {num_pages}-page document.\n" + full_text
-
-        return text
-
     def reply(self, query, context=None):
         # acquire reply content
         if context.type == ContextType.TEXT:
@@ -159,11 +109,10 @@ class OpenAIBot(Bot):
         elif context.type == ContextType.SHARING:
             # print(query,context)
             logger.info("[CHATGPT] query={}".format(query))
-
             session_id = context["session_id"]
-            # reply = None
 
-            text = self.get_url_content(query)
+            # 解析请求链接
+            text = get_url_content(query)
 
             logger.debug("[CHATGPT] article text length={}, text={}".format(len(text), text))
 
@@ -213,7 +162,7 @@ class OpenAIBot(Bot):
             # reply = None
 
             context.kwargs['msg']._prepare_fn()
-            text = self.get_file_content(query)
+            text = get_file_content(query)
 
             logger.debug("[CHATGPT] article text length={}, text={}".format(len(text), text))
 
