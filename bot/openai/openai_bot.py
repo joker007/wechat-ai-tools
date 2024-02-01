@@ -85,7 +85,7 @@ class OpenAIBot(Bot):
                     model=platforms["openai"]["image"],
                     prompt=query,
                     size="1024x1024",
-                    quality="Standard",
+                    quality="standard",
                     style="vivid",
                     n=1,
                 )
