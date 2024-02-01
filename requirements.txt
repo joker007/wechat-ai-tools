@@ -10,3 +10,4 @@ PyMuPDF
 python-docx
 pytesseract
 google-generativeai>=0.3.2
+curl_cffi
