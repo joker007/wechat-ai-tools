@@ -199,7 +199,7 @@ class ChatChannel(Channel):
 3.详细模式，包含总结（不超过100字）、要点（支持内容），
   标签，命令：#s user_summarize_detail_prompt
 4.阅读模式，包含知识点，标签，
-  命令：#s user_summarize_knowledge_prompt
+  命令：#s user_s_knowledge_prompt
 注：切换模式后，转发文章即可，每晚18：00到早10：00稳定运行
                '''
             reply = Reply(ReplyType.INFO, l)
