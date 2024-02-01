@@ -61,8 +61,10 @@ class GoogleGeminiBot(Bot):
                 logger.debug("[Gemini] session query={}".format(gemini_messages))
 
                 genai.configure(api_key=self.api_key)
-                response = self.model.generate_content(gemini_messages)
+                model = genai.GenerativeModel('gemini-pro')
 
+                response = model.generate_content(gemini_messages)
+                logger.debug("[Gemini] session query={}".format(self.model))
                 logger.debug(
                     "[Gemini] new_query={}, session_id={}, reply_cont={}, prompt_feedback={}".format(
                         gemini_messages,
