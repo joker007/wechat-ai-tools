@@ -7,6 +7,7 @@ Google gemini bot
 # encoding:utf-8
 
 import google.generativeai as genai
+from google.generativeai.types import GenerationConfig
 from pathlib import Path
 
 from bot.bot import Bot
@@ -65,8 +66,19 @@ class GoogleGeminiBot(Bot):
 
                 genai.configure(api_key=self.api_key)
                 #model = genai.GenerativeModel('gemini-pro')
+                config = GenerationConfig(
+                    candidate_count=1,  # 假设只需要一个候选
+                    max_output_tokens=10000,
+                    temperature=0.1
+                )
+                safety_setting = {
+                    'SEXUAL': 'block_none',
+                    'HARASSMENT': 'block_none',
+                    'HATE_SPEECH': 'block_none',
+                    'DANGEROUS': 'block_none'
+                }
 
-                response = self.model.generate_content(gemini_messages)
+                response = self.model.generate_content(gemini_messages, safety_settings=safety_setting, generation_config=config)
                 logger.debug("[Gemini] session query={}".format(self.model))
                 logger.debug(
                     "[Gemini] new_query={}, session_id={}, reply_cont={}, prompt_feedback={}".format(
