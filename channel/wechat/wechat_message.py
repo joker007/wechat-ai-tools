@@ -7,6 +7,7 @@ from common.tmp_dir import TmpDir
 from lib import itchat
 from lib.itchat.content import *
 
+
 class WechatMessage(ChatMessage):
     def __init__(self, itchat_msg, is_group=False):
         super().__init__(itchat_msg)

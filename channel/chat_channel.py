@@ -254,6 +254,14 @@ class ChatChannel(Channel):
         elif context.type == ContextType.IMAGE:  # 图片消息，当前仅做下载保存到本地的逻辑
             cmsg = context["msg"]
             cmsg.prepare()
+
+            bot_type = conf().get("bot")
+
+            if bot_type != 'gemini':
+                reply = Reply(ReplyType.INFO, "当前机器人不支持识图功能")
+                return reply
+            reply = super().build_image_to_text(bot_type, context.content, context)
+
         elif context.type == ContextType.SHARING:  # 分享信息，当前无默认逻辑
             bot_type = conf().get("bot")
             reply = super().build_url_to_text(bot_type, context.content, context)

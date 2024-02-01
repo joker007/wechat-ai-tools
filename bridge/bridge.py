@@ -44,6 +44,10 @@ class Bridge(object):
     def fetch_file_to_content(self, bot_type, query, context: Context) -> Reply:
         return self.get_bot(bot_type).reply(query, context)
 
+    # IMAGE回复
+    def fetch_image_to_content(self, bot_type, query, context: Context) -> Reply:
+        return self.get_bot(bot_type).reply(query, context)
+
     def fetch_voice_to_text(self, voiceFile) -> Reply:
         return self.get_bot("voice_to_text").voiceToText(voiceFile)
 

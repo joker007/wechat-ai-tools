@@ -6,8 +6,10 @@ Google gemini bot
 """
 # encoding:utf-8
 
-from bot.bot import Bot
 import google.generativeai as genai
+from pathlib import Path
+
+from bot.bot import Bot
 from bot.session_manager import SessionManager
 from bridge.context import ContextType, Context
 from bridge.reply import Reply, ReplyType
@@ -77,7 +79,33 @@ class GoogleGeminiBot(Bot):
 
                 reply = Reply(ReplyType.TEXT, response.text)
                 return reply
-
+            elif context.type == ContextType.IMAGE:
+                cookie_picture = {
+                    'mime_type': 'image/png',
+                    'data': Path(context.content).read_bytes()
+                }
+                model = genai.GenerativeModel('gemini-pro-vision')
+                safety_setting = {
+                    'SEXUAL': 'block_none',
+                    'HARASSMENT': 'block_none',
+                    'HATE_SPEECH': 'block_none',
+                    'DANGEROUS': 'block_none'
+                }
+                try:
+                    response = model.generate_content(contents=[
+                        'Please describe this image in Chinese as detailed and accurately as possible, without adding any information that is not present in the image,then make  inferences based on that.',
+                        cookie_picture], safety_settings=safety_setting)
+                    reply = Reply(ReplyType.TEXT, response.text)
+                except Exception as e:
+                    logger.debug(
+                        "[Gemini] new_query={},  reply_cont={}, prompt_feedback={}".format(
+                            '',
+                            len(response.text),
+                            response.prompt_feedback,
+                        )
+                    )
+                    reply = Reply(ReplyType.TEXT, '服务器出错啦')
+                return reply
             else:
                 logger.warn(f"[Gemini] Unsupported message type, type={context.type}")
                 return Reply(ReplyType.TEXT, None)

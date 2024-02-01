@@ -42,6 +42,9 @@ class Channel(object):
     def build_file_to_text(self,bot_type, query, context: Context = None) -> Reply:
         return Bridge().fetch_file_to_content(bot_type, query, context)
 
+    def build_image_to_text(self,bot_type, query, context: Context = None) -> Reply:
+        return Bridge().fetch_image_to_content(bot_type, query, context)
+
     # def build_voice_to_text(self, voice_file) -> Reply:
     #     return Bridge().fetch_voice_to_text(voice_file)
     #
