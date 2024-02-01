@@ -25,7 +25,7 @@ class Bridge(object):
     def get_bot(self, typename):
         if self.bots.get(typename) is None:
             logger.info("create bot {} for {}".format(typename, typename))
-            if typename in ["openai", "gemini"]:
+            if typename in ["openai", "gemini", "claude"]:
                 self.bots[typename] = create_bot(typename)
         return self.bots[typename]
 
