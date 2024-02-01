@@ -47,7 +47,7 @@ class OpenAIBot(Bot):
             "timeout": conf().get("request_timeout", None),  # 重试超时时间，在这个时间内，将会自动重试
         }
 
-    def manage(self, session_id, query, context=None):
+    def manage(self, session_id, query):
         # 管理功能
         reply = None
 
@@ -61,15 +61,36 @@ class OpenAIBot(Bot):
 
         return reply
 
+    def draw(self, query):
+        reply = None
+
     def reply(self, query, context=None):
         # acquire reply content
         if context.type == ContextType.TEXT:
             logger.info("[CHATGPT] query={}".format(query))
 
             session_id = context["session_id"]
-            reply = self.manage(session_id, query, context)
-
+            reply = self.manage(session_id, query)
             if reply:
+                return reply
+
+            query = context.content
+            if query.startswith("#d"):
+                platforms = conf().get("platforms")
+
+                logger.info("[CHATGPT] {}, model={}".format("当前模式为画图模式", platforms["openai"]["image"]))
+                query = query.replace("#s", "", 1).strip()
+
+                response = openai.images.generate(
+                    model=platforms["openai"]["image"],
+                    prompt=query,
+                    size="1024x1024",
+                    quality="Standard",
+                    style="vivid",
+                    n=1,
+                )
+                image_url = response.data[0].url
+                reply = Reply(ReplyType.IMAGE_URL, image_url)
                 return reply
 
             session = self.sessions.session_query(query, session_id)

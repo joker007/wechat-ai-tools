@@ -161,10 +161,10 @@ class ChatChannel(Channel):
         # reply的发送步骤
         self._send_reply(context, reply)
 
-    def _manage(self, content):
+    def _manage(self, context):
         # 管理功能
         reply = None
-        query = content.content
+        query = context.content
 
         if query in ["#更新配置", "#u"]:
             load_config()
@@ -206,8 +206,8 @@ class ChatChannel(Channel):
         # elif query.startswith("#l"):
         #     conf().get(prompts)
         #     reply = Reply(ReplyType.INFO, "常看当前所有模式:")
-        elif query.startswith("#"):
-            reply = Reply(ReplyType.INFO, "命令输入错误")
+        #elif query.startswith("#"):
+        #    reply = Reply(ReplyType.INFO, "命令输入错误")
         return reply
 
     def _generate_reply(self, context: Context, reply: Reply = Reply()) -> Reply:

@@ -32,6 +32,7 @@ def get_url_content(query):
         #print(text)
     elif is_url_in_domains(url) in ["m.toutiao.com"]:
         logger.info("[TouTiao] url={}".format(url))
+        text = get_url_content_Toutiao(url)
     else:
         logger.info("[Other] url={}".format(url))
         text = get_url_content_common(url)
@@ -66,6 +67,28 @@ def get_file_content(query):
     return text
 
 def get_url_content_Wind(url, verbose = False):
+    options = webdriver.ChromeOptions()
+    #options.add_argument("--headless")
+    driver = webdriver.Chrome(options=options)
+
+    driver.get(url)
+    # 等待 JavaScript 执行完成
+    wait = WebDriverWait(driver, 10)
+    #news-detail
+    #wait.until(EC.presence_of_element_located((By.ID, "news-detail")))
+    wait.until(EC.presence_of_element_located((By.CLASS_NAME, "article-content")))
+    # 获取页面内容
+    page_source = driver.page_source
+    soup = BeautifulSoup(page_source, "html.parser")
+    #content = soup.find('div', id ='news-detail')
+    content = soup.find('div', class_ ='article-content')
+    text = content.get_text()
+    driver.quit()
+    if verbose:
+        print(text)
+    return text
+
+def get_url_content_Toutiao(url, verbose = False):
     options = webdriver.ChromeOptions()
     #options.add_argument("--headless")
     driver = webdriver.Chrome(options=options)
