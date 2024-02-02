@@ -151,7 +151,7 @@ class ClaudeAIBot(Bot):
                 "completion": {
                     "prompt": f"{query}",
                     "timezone": "Asia/Kolkata",
-                    "model": "claude-2"
+                    "model": "null"
                 },
                 "organization_uuid": f"{self.org_uuid}",
                 "conversation_uuid": f"{con_uuid}",
